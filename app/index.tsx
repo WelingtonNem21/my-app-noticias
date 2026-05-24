@@ -1,5 +1,7 @@
 import { router } from "expo-router";
+import { useState } from "react";
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
@@ -8,8 +10,36 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { loginUsuario } from "../src/repositories/UsuarioRepositores";
 
 export default function index() {
+  const [email, setEmail] = useState("");
+  const [senha, setSenha] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function handleLogin() {
+    if (!email.trim() || !senha.trim()) {
+      Alert.alert("Campos obrigatórios", "Preencha email e senha.");
+      return;
+    }
+    try {
+      setLoading(true);
+      const user = await loginUsuario(email.trim().toLowerCase(), senha);
+      if (!user) {
+        Alert.alert("Credenciais inválidas", "Email ou senha incorretos.");
+        return;
+      }
+      router.replace({
+        pathname: "/home",
+        params: { userId: user.id, nome: user.nome },
+      });
+    } catch {
+      Alert.alert("Erro", "Não foi possível fazer login. Tente novamente.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <KeyboardAvoidingView
       style={style.container}
@@ -29,13 +59,15 @@ export default function index() {
         <Text style={style.cardTitle}>Entrar na conta</Text>
 
         <View style={style.fieldGroup}>
-          <Text style={style.label}>Email ou usuário</Text>
+          <Text style={style.label}>Email</Text>
           <TextInput
             style={style.input}
             placeholder="exemplo@email.com"
             placeholderTextColor="#aaa"
             keyboardType="email-address"
             autoCapitalize="none"
+            value={email}
+            onChangeText={setEmail}
           />
         </View>
 
@@ -46,6 +78,8 @@ export default function index() {
             placeholder="••••••••"
             placeholderTextColor="#aaa"
             secureTextEntry
+            value={senha}
+            onChangeText={setSenha}
           />
         </View>
 
@@ -54,11 +88,14 @@ export default function index() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          onPress={() => router.push("/home")}
-          style={style.button}
+          onPress={handleLogin}
+          style={[style.button, loading && style.buttonDisabled]}
           activeOpacity={0.85}
+          disabled={loading}
         >
-          <Text style={style.buttonText}>Entrar</Text>
+          <Text style={style.buttonText}>
+            {loading ? "Entrando..." : "Entrar"}
+          </Text>
         </TouchableOpacity>
 
         <View style={style.separador}>
@@ -192,6 +229,9 @@ const style = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 4,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
   buttonText: {
     color: "#fff",

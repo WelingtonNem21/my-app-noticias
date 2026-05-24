@@ -31,7 +31,14 @@
     },
     "plugins": [
       "expo-router",
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "O app precisa de acesso à galeria para adicionar imagens ao post.",
+          "cameraPermission": "O app precisa de acesso à câmera para tirar fotos."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

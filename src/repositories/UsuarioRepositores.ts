@@ -1,26 +1,36 @@
-import {DB} from '../../app/database'
-import {usuario} from '../types/usuario'
+import { getDB } from "../database";
+import { Usuario } from "../types/usuario";
 
-
-export async function listarusuarios(db : DB): Promise<usuario[]> {
-return db.getAllAsync<usuario>('SELECT * FROM usuarios ORDER by id desc')
+export async function cadastrarUsuario(
+  nome: string,
+  email: string,
+  senha: string
+): Promise<void> {
+  const db = await getDB();
+  await db.runAsync(
+    "INSERT INTO usuario (nome, email, senha) VALUES (?, ?, ?)",
+    [nome, email, senha]
+  );
 }
 
-export async function adicionarusuariosDB(
-db : DB,
-nome: string,
-email: string,
-
-
-):Promise<void> {
-    await db.runAsync(
-        'INSERT INTO usuarios (nome, email) VALUES (?, ?)',
-        [nome, email],
-
-    );
-
+export async function loginUsuario(
+  email: string,
+  senha: string
+): Promise<Usuario | null> {
+  const db = await getDB();
+  const user = await db.getFirstAsync<Usuario>(
+    "SELECT id, nome, email FROM usuario WHERE email = ? AND senha = ?",
+    [email, senha]
+  );
+  return user ?? null;
 }
 
-export async function removerusuario(db : DB, id : number): Promise<void> {
-     await db.runAsync('DELETE FROM usuarios where id = ?', [id]);
+export async function listarUsuarios(): Promise<Usuario[]> {
+  const db = await getDB();
+  return db.getAllAsync<Usuario>("SELECT id, nome, email FROM usuario ORDER BY id DESC");
+}
+
+export async function removerUsuario(id: number): Promise<void> {
+  const db = await getDB();
+  await db.runAsync("DELETE FROM usuario WHERE id = ?", [id]);
 }

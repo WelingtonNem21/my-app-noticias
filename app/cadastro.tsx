@@ -1,5 +1,7 @@
 import { router } from "expo-router";
+import { useState } from "react";
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -9,8 +11,40 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { cadastrarUsuario } from "../src/repositories/UsuarioRepositores";
 
 export default function cadastro() {
+  const [nome, setNome] = useState("");
+  const [email, setEmail] = useState("");
+  const [senha, setSenha] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function handleCadastro() {
+    if (!nome.trim() || !email.trim() || !senha.trim()) {
+      Alert.alert("Campos obrigatórios", "Preencha todos os campos.");
+      return;
+    }
+    if (senha.length < 6) {
+      Alert.alert("Senha fraca", "A senha deve ter pelo menos 6 caracteres.");
+      return;
+    }
+    try {
+      setLoading(true);
+      await cadastrarUsuario(nome.trim(), email.trim().toLowerCase(), senha);
+      Alert.alert("Conta criada!", "Seu cadastro foi realizado com sucesso.", [
+        { text: "Entrar", onPress: () => router.replace("/") },
+      ]);
+    } catch (e: any) {
+      if (e?.message?.includes("UNIQUE")) {
+        Alert.alert("Email já cadastrado", "Use outro email ou faça login.");
+      } else {
+        Alert.alert("Erro", "Não foi possível criar a conta. Tente novamente.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <KeyboardAvoidingView
       style={style.container}
@@ -41,6 +75,8 @@ export default function cadastro() {
               placeholder="João da Silva"
               placeholderTextColor="#aaa"
               autoCapitalize="words"
+              value={nome}
+              onChangeText={setNome}
             />
           </View>
 
@@ -52,6 +88,8 @@ export default function cadastro() {
               placeholderTextColor="#aaa"
               keyboardType="email-address"
               autoCapitalize="none"
+              value={email}
+              onChangeText={setEmail}
             />
           </View>
 
@@ -62,15 +100,20 @@ export default function cadastro() {
               placeholder="••••••••"
               placeholderTextColor="#aaa"
               secureTextEntry
+              value={senha}
+              onChangeText={setSenha}
             />
           </View>
 
           <TouchableOpacity
-            onPress={() => router.replace("/")}
-            style={style.button}
+            onPress={handleCadastro}
+            style={[style.button, loading && style.buttonDisabled]}
             activeOpacity={0.85}
+            disabled={loading}
           >
-            <Text style={style.buttonText}>Criar conta</Text>
+            <Text style={style.buttonText}>
+              {loading ? "Criando conta..." : "Criar conta"}
+            </Text>
           </TouchableOpacity>
 
           <View style={style.footer}>
@@ -183,6 +226,9 @@ const style = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 4,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
   buttonText: {
     color: "#fff",
