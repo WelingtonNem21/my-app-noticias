@@ -1,16 +1,16 @@
-import * as Sqlite from 'expo-sqlite'
+import * as Sqlite from "expo-sqlite";
 export type DB = Sqlite.SQLiteDatabase;
 
 export async function getDB(): Promise<DB> {
-const db = await Sqlite.openDatabaseAsync('escola.db')
+  const db = await Sqlite.openDatabaseAsync("escola.db");
 
-await db.execAsync(`
+  await db.execAsync(`
         CREATE TABLE IF NOT EXISTS usuario(
         id Integer primary Key Autoincrement,
         nome Text NOT NULL,
         email TEXT NOT NULL
         );
-    `)
+    `);
 
-    return db
+  return db;
 }
