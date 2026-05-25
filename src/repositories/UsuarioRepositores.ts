@@ -34,3 +34,12 @@ export async function removerUsuario(id: number): Promise<void> {
   const db = await getDB();
   await db.runAsync("DELETE FROM usuario WHERE id = ?", [id]);
 }
+
+export async function buscarUsuarioPorId(id: number): Promise<Usuario | null> {
+  const db = await getDB();
+  const user = await db.getFirstAsync<Usuario>(
+    "SELECT id, nome, email FROM usuario WHERE id = ?",
+    [id]
+  );
+  return user ?? null;
+}

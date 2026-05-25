@@ -5,9 +5,10 @@ import { Ionicons } from "@expo/vector-icons";
 type Props = {
   onCreatePress?: () => void;
   userId?: string;
+  nome?: string;
 };
 
-export default function BottomMenu({ onCreatePress, userId }: Props) {
+export default function BottomMenu({ onCreatePress, userId, nome }: Props) {
   const pathname = usePathname();
 
   function isActive(route: string) {
@@ -37,7 +38,7 @@ export default function BottomMenu({ onCreatePress, userId }: Props) {
         <Text style={style.createLabel}>Criar</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={style.tab} onPress={() => goTo("/perfil")} activeOpacity={0.7}>
+      <TouchableOpacity style={style.tab} onPress={() => router.push({ pathname: "/perfil", params: { userId, nome } } as any)} activeOpacity={0.7}>
         <Ionicons name={isActive("/perfil") ? "person" : "person-outline"} size={24} color={isActive("/perfil") ? "#dd5145" : "#aaa"} />
         <Text style={[style.label, isActive("/perfil") && style.labelActive]}>Perfil</Text>
       </TouchableOpacity>

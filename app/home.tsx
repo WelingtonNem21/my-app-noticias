@@ -256,7 +256,7 @@ export default function home() {
         <View style={{ height: 16 }} />
       </ScrollView>
 
-      <BottomMenu onCreatePress={() => setModalVisible(true)} userId={userId} />
+      <BottomMenu onCreatePress={() => setModalVisible(true)} userId={userId} nome={nome} />
 
       <Modal visible={modalVisible} animationType="slide" transparent>
         <KeyboardAvoidingView

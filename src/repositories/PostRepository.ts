@@ -49,3 +49,20 @@ export async function removerPost(id: number): Promise<void> {
   const db = await getDB();
   await db.runAsync("DELETE FROM post WHERE id = ?", [id]);
 }
+
+export async function contarFavoritos(): Promise<number> {
+  const db = await getDB();
+  const row = await db.getFirstAsync<{ total: number }>(
+    "SELECT COUNT(*) as total FROM post WHERE favorito = 1"
+  );
+  return row?.total ?? 0;
+}
+
+export async function totalCurtidasUsuario(usuarioId: number): Promise<number> {
+  const db = await getDB();
+  const row = await db.getFirstAsync<{ total: number }>(
+    "SELECT COALESCE(SUM(curtidas), 0) as total FROM post WHERE usuario_id = ?",
+    [usuarioId]
+  );
+  return row?.total ?? 0;
+}
