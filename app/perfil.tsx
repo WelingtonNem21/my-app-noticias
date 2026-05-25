@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,20 +8,12 @@ import {
   StatusBar,
   Switch,
   SafeAreaView,
+  ActivityIndicator,
 } from 'react-native';
-
-// ─── Tipos ───────────────────────────────────────────────────────────────────
-
-interface MenuItemProps {
-  iconBg: string;
-  iconColor: string;
-  icon: string; // nome do ícone (substitua por seu lib de ícones)
-  title: string;
-  subtitle: string;
-  onPress?: () => void;
-  rightElement?: React.ReactNode;
-  showBadge?: boolean;
-}
+import { useLocalSearchParams } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { contarFavoritos, totalCurtidasUsuario } from '../src/repositories/PostRepository';
+import { buscarUsuarioPorId } from '../src/repositories/UsuarioRepositores';
 
 // ─── Constantes de cor ────────────────────────────────────────────────────────
 
@@ -45,38 +37,13 @@ const COLORS = {
   iconGrayBg: '#F0F0F0',
 };
 
-// ─── Componente: Ícone placeholder ───────────────────────────────────────────
-// Substitua este componente pelo seu provedor de ícones (ex: @expo/vector-icons)
-
-const Icon: React.FC<{ name: string; size?: number; color?: string }> = ({
-  name,
-  size = 18,
-  color = '#000',
-}) => (
-  // Placeholder — troque por: <Ionicons name={name} size={size} color={color} />
-  <View
-    style={{
-      width: size,
-      height: size,
-      borderRadius: size / 4,
-      backgroundColor: color + '33',
-    }}
-  />
-);
-
 // ─── Componente: Avatar ───────────────────────────────────────────────────────
 
-const Avatar: React.FC<{ initials: string; onEditPress?: () => void }> = ({
-  initials,
-  onEditPress,
-}) => (
+const Avatar: React.FC<{ initials: string }> = ({ initials }) => (
   <View style={styles.avatarWrap}>
     <View style={styles.avatar}>
-      <Text style={styles.avatarText}>{initials}</Text>
+      <Text style={styles.avatarText}>{initials.toUpperCase()}</Text>
     </View>
-    <TouchableOpacity style={styles.avatarEdit} onPress={onEditPress} activeOpacity={0.8}>
-      <Icon name="pencil" size={13} color={COLORS.white} />
-    </TouchableOpacity>
   </View>
 );
 
@@ -95,10 +62,21 @@ const StatCard: React.FC<{ value: number; label: string; isLast?: boolean }> = (
 
 // ─── Componente: Item de menu ─────────────────────────────────────────────────
 
+interface MenuItemProps {
+  iconName: keyof typeof Ionicons.glyphMap;
+  iconBg: string;
+  iconColor: string;
+  title: string;
+  subtitle: string;
+  onPress?: () => void;
+  rightElement?: React.ReactNode;
+  showBadge?: boolean;
+}
+
 const MenuItem: React.FC<MenuItemProps> = ({
+  iconName,
   iconBg,
   iconColor,
-  icon,
   title,
   subtitle,
   onPress,
@@ -107,7 +85,7 @@ const MenuItem: React.FC<MenuItemProps> = ({
 }) => (
   <TouchableOpacity style={styles.menuItem} onPress={onPress} activeOpacity={0.7}>
     <View style={[styles.menuIcon, { backgroundColor: iconBg }]}>
-      <Icon name={icon} size={18} color={iconColor} />
+      <Ionicons name={iconName} size={18} color={iconColor} />
     </View>
     <View style={styles.menuText}>
       <Text style={styles.menuTitle}>{title}</Text>
@@ -119,7 +97,7 @@ const MenuItem: React.FC<MenuItemProps> = ({
       </View>
     )}
     {rightElement ?? (
-      <Icon name="chevron-right" size={16} color={COLORS.textMuted} />
+      <Ionicons name="chevron-forward" size={16} color={COLORS.textMuted} />
     )}
   </TouchableOpacity>
 );
@@ -133,27 +111,34 @@ const SectionTitle: React.FC<{ children: string }> = ({ children }) => (
 // ─── Tela principal: Perfil ───────────────────────────────────────────────────
 
 const ProfileScreen: React.FC = () => {
+  const { userId } = useLocalSearchParams<{ userId: string }>();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [savedCount, setSavedCount] = useState(0);
+  const [curtidas, setCurtidas] = useState(0);
+  const [nomeUsuario, setNomeUsuario] = useState('');
+  const [loading, setLoading] = useState(true);
 
-  // Dados do usuário — substitua por dados reais do seu contexto/store
-  const user = {
-    name: 'Henrique',
-    email: 'henrique@email.com',
-    initials: 'H',
-    savedCount: 47,
-    postsCount: 12,
-    followingCount: 3,
-  };
+  const carregarDados = useCallback(async () => {
+    try {
+      const [usuario, salvos, totalCurtidas] = await Promise.all([
+        buscarUsuarioPorId(Number(userId)),
+        contarFavoritos(),
+        totalCurtidasUsuario(Number(userId)),
+      ]);
+      if (usuario) setNomeUsuario(usuario.nome);
+      setSavedCount(salvos);
+      setCurtidas(totalCurtidas);
+    } catch {
+    } finally {
+      setLoading(false);
+    }
+  }, [userId]);
 
-  const handleLogout = () => {
-    // Implemente sua lógica de logout aqui
-    console.log('Logout');
-  };
+  useEffect(() => {
+    carregarDados();
+  }, [carregarDados]);
 
-  const handleEditProfile = () => {
-    // Navegue para a tela de edição
-    console.log('Editar perfil');
-  };
+  const inicial = nomeUsuario.charAt(0) || '?';
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -162,9 +147,6 @@ const ProfileScreen: React.FC = () => {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Perfil</Text>
-        <TouchableOpacity onPress={handleEditProfile} activeOpacity={0.7}>
-          <Text style={styles.headerEdit}>Editar</Text>
-        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -174,17 +156,21 @@ const ProfileScreen: React.FC = () => {
       >
         {/* Avatar + Nome */}
         <View style={styles.avatarSection}>
-          <Avatar initials={user.initials} onEditPress={handleEditProfile} />
-          <Text style={styles.userName}>{user.name}</Text>
-          <Text style={styles.userEmail}>{user.email}</Text>
+          <Avatar initials={inicial} />
+          <Text style={styles.userName}>{nomeUsuario}</Text>
         </View>
 
         {/* Estatísticas */}
-        <View style={styles.statsRow}>
-          <StatCard value={user.savedCount} label="Salvos" />
-          <StatCard value={user.postsCount} label="Publicações" />
-          <StatCard value={user.followingCount} label="Seguindo" isLast />
-        </View>
+        {loading ? (
+          <View style={styles.loadingRow}>
+            <ActivityIndicator size="small" color={COLORS.primary} />
+          </View>
+        ) : (
+          <View style={styles.statsRow}>
+            <StatCard value={savedCount} label="Salvos" />
+            <StatCard value={curtidas} label="Curtidas" isLast />
+          </View>
+        )}
 
         {/* ── Seção: Conta ── */}
         <SectionTitle>Conta</SectionTitle>
@@ -192,28 +178,25 @@ const ProfileScreen: React.FC = () => {
           <MenuItem
             iconBg={COLORS.primaryLight}
             iconColor={COLORS.primary}
-            icon="person"
+            iconName="person-outline"
             title="Dados pessoais"
             subtitle="Nome, e-mail, senha"
-            onPress={() => console.log('Dados pessoais')}
           />
           <View style={styles.divider} />
           <MenuItem
             iconBg={COLORS.iconBlueBg}
             iconColor={COLORS.iconBlue}
-            icon="shield-checkmark"
+            iconName="shield-checkmark-outline"
             title="Privacidade"
             subtitle="Visibilidade e dados"
-            onPress={() => console.log('Privacidade')}
           />
           <View style={styles.divider} />
           <MenuItem
             iconBg={COLORS.iconOrangeBg}
             iconColor={COLORS.iconOrange}
-            icon="information-circle"
+            iconName="star-outline"
             title="Assinatura"
             subtitle="Plano gratuito"
-            onPress={() => console.log('Assinatura')}
             showBadge
           />
         </View>
@@ -224,7 +207,7 @@ const ProfileScreen: React.FC = () => {
           <MenuItem
             iconBg={COLORS.primaryLight}
             iconColor={COLORS.primary}
-            icon="notifications"
+            iconName="notifications-outline"
             title="Notificações"
             subtitle="Alertas e avisos"
             rightElement={
@@ -240,19 +223,17 @@ const ProfileScreen: React.FC = () => {
           <MenuItem
             iconBg={COLORS.iconGrayBg}
             iconColor={COLORS.iconGray}
-            icon="moon"
+            iconName="moon-outline"
             title="Tema"
             subtitle="Claro / Escuro"
-            onPress={() => console.log('Tema')}
           />
           <View style={styles.divider} />
           <MenuItem
             iconBg={COLORS.iconGreenBg}
             iconColor={COLORS.iconGreen}
-            icon="star"
+            iconName="heart-outline"
             title="Categorias favoritas"
             subtitle="Tecnologia, Negócios"
-            onPress={() => console.log('Categorias')}
           />
         </View>
 
@@ -262,25 +243,23 @@ const ProfileScreen: React.FC = () => {
           <MenuItem
             iconBg={COLORS.iconGrayBg}
             iconColor={COLORS.iconGray}
-            icon="help-circle"
+            iconName="help-circle-outline"
             title="Ajuda e suporte"
             subtitle="FAQ e contato"
-            onPress={() => console.log('Suporte')}
           />
           <View style={styles.divider} />
           <MenuItem
             iconBg={COLORS.iconGrayBg}
             iconColor={COLORS.iconGray}
-            icon="flag"
+            iconName="information-circle-outline"
             title="Sobre o app"
             subtitle="Versão 1.0.0"
-            onPress={() => console.log('Sobre')}
           />
         </View>
 
         {/* Botão sair */}
-        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.8}>
-          <Icon name="log-out" size={18} color={COLORS.primary} />
+        <TouchableOpacity style={styles.logoutBtn} activeOpacity={0.8}>
+          <Ionicons name="log-out-outline" size={18} color={COLORS.primary} />
           <Text style={styles.logoutText}>Sair da conta</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -295,9 +274,6 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 4,
@@ -306,11 +282,6 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '700',
     color: COLORS.textPrimary,
-  },
-  headerEdit: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.primary,
   },
   scroll: {
     flex: 1,
@@ -325,7 +296,6 @@ const styles = StyleSheet.create({
     paddingVertical: 24,
   },
   avatarWrap: {
-    position: 'relative',
     marginBottom: 12,
   },
   avatar: {
@@ -341,28 +311,20 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: COLORS.white,
   },
-  avatarEdit: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: COLORS.primary,
-    borderWidth: 2,
-    borderColor: COLORS.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   userName: {
     fontSize: 20,
     fontWeight: '700',
     color: COLORS.textPrimary,
     marginBottom: 4,
   },
-  userEmail: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
+
+  // Loading
+  loadingRow: {
+    height: 68,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginHorizontal: 20,
+    marginBottom: 24,
   },
 
   // Stats

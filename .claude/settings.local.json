@@ -3,7 +3,11 @@
     "allow": [
       "Bash(git stash *)",
       "Bash(git pull *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(not exist *)",
+      "Bash(npx expo *)",
+      "Bash(npm install *)",
+      "Bash(del app\\\\database.ts)"
     ]
   }
 }
