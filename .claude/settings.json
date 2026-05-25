@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(adb devices *)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\wa925\\\\Desktop\\\\my-app-noticias\" -Force)",
+      "PowerShell(New-Item -ItemType Directory -Force \"c:\\\\Users\\\\wa925\\\\Desktop\\\\my-app-noticias\\\\app\\\\post\")",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)"
+    ]
+  }
+}
