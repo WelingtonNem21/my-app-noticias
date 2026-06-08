@@ -1,7 +1,8 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Alert,
+  ActivityIndicator,
   Modal,
   KeyboardAvoidingView,
   Platform,
@@ -18,6 +19,17 @@ import BottomMenu from "../src/components/BottomMenu";
 import * as ImagePicker from "expo-image-picker";
 import { criarPost, listarPosts } from "../src/repositories/PostRepository";
 import { Post } from "../src/types/post";
+
+const API_URL = "https://6a27486ba84f9d39e9086882.mockapi.io/teste/blogs";
+
+type BlogPost = {
+  id: string;
+  titulo: string;
+  conteudo: string;
+  imagem: string;
+  curtidas: number;
+  usuario_id: number;
+};
 
 const categorias = ["Para Você", "Tecnologia", "Negócios", "Política", "Esporte"];
 
@@ -52,6 +64,32 @@ export default function home() {
   const [loadingPost, setLoadingPost] = useState(false);
   const [imagem, setImagem] = useState<string | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
+  const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
+  const [loadingBlog, setLoadingBlog] = useState(false);
+  const [busca, setBusca] = useState("");
+
+  const postsFiltrados = useMemo(() => {
+    const q = busca.trim().toLowerCase();
+    if (!q) return blogPosts;
+    return blogPosts.filter(
+      (p) =>
+        p.titulo.toLowerCase().includes(q) ||
+        p.conteudo.toLowerCase().includes(q)
+    );
+  }, [busca, blogPosts]);
+
+  const carregarBlogPosts = useCallback(async () => {
+    try {
+      setLoadingBlog(true);
+      const res = await fetch(API_URL);
+      const data: BlogPost[] = await res.json();
+      setBlogPosts(data);
+    } catch {
+      Alert.alert("Erro", "Não foi possível carregar os posts da API.");
+    } finally {
+      setLoadingBlog(false);
+    }
+  }, []);
 
   const carregarPosts = useCallback(async () => {
     try {
@@ -62,7 +100,8 @@ export default function home() {
 
   useEffect(() => {
     carregarPosts();
-  }, [carregarPosts]);
+    carregarBlogPosts();
+  }, [carregarPosts, carregarBlogPosts]);
 
   async function selecionarImagem() {
     Alert.alert("Adicionar imagem", "Escolha uma opção", [
@@ -154,7 +193,15 @@ export default function home() {
             style={style.buscaInput}
             placeholder="Buscar notícias..."
             placeholderTextColor="#bbb"
+            value={busca}
+            onChangeText={setBusca}
+            returnKeyType="search"
           />
+          {busca.length > 0 && (
+            <TouchableOpacity onPress={() => setBusca("")}>
+              <Ionicons name="close-circle" size={16} color="#bbb" />
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Categorias */}
@@ -212,18 +259,28 @@ export default function home() {
         </ScrollView>
 
         {/* Últimas Notícias */}
-        <Text style={[style.sectionTitle, { marginHorizontal: 20, marginBottom: 12 }]}>
-          Últimas Notícias
-        </Text>
+        <View style={style.sectionHeader}>
+          <Text style={style.sectionTitle}>Últimas Notícias</Text>
+          {busca.length > 0 && (
+            <Text style={style.resultadosBusca}>
+              {postsFiltrados.length} resultado{postsFiltrados.length !== 1 ? "s" : ""}
+            </Text>
+          )}
+        </View>
 
-        {posts.length === 0 ? (
+        {loadingBlog ? (
           <View style={style.emptyContainer}>
-            <Ionicons name="newspaper-outline" size={40} color="#ddd" />
-            <Text style={style.emptyText}>Nenhuma publicação ainda.</Text>
-            <Text style={style.emptySubText}>Crie o primeiro post!</Text>
+            <ActivityIndicator size="large" color="#dd5145" />
+            <Text style={style.emptySubText}>Carregando notícias...</Text>
+          </View>
+        ) : postsFiltrados.length === 0 ? (
+          <View style={style.emptyContainer}>
+            <Ionicons name="search-outline" size={40} color="#ddd" />
+            <Text style={style.emptyText}>Nenhum resultado encontrado.</Text>
+            <Text style={style.emptySubText}>Tente buscar outro termo.</Text>
           </View>
         ) : (
-          posts.map((item) => (
+          postsFiltrados.map((item) => (
             <TouchableOpacity
               key={item.id}
               style={style.noticiaCard}
@@ -231,21 +288,23 @@ export default function home() {
               onPress={() =>
                 router.push({
                   pathname: "/post/[id]",
-                  params: { id: item.id, userId },
+                  params: { id: item.id, userId, source: "api" },
                 } as any)
               }
             >
-              {item.imagem ? (
-                <Image source={{ uri: item.imagem }} style={style.noticiaImagem} />
-              ) : (
-                <View style={style.postIconBox}>
-                  <Ionicons name="document-text-outline" size={28} color="#dd5145" />
-                </View>
-              )}
+              <View style={style.postIconBox}>
+                <Ionicons name="document-text-outline" size={28} color="#dd5145" />
+              </View>
               <View style={style.noticiaInfo}>
-                <Text style={style.noticiaCategoria}>PUBLICAÇÃO</Text>
+                <View style={style.noticiaCabecalho}>
+                  <Text style={style.noticiaCategoria}>BLOG</Text>
+                  <View style={style.curtidaRow}>
+                    <Ionicons name="heart-outline" size={12} color="#dd5145" />
+                    <Text style={style.curtidaTexto}>{item.curtidas}</Text>
+                  </View>
+                </View>
                 <Text style={style.noticiaTitulo}>{item.titulo}</Text>
-                <Text style={style.noticiaConteudoPreview} numberOfLines={1}>
+                <Text style={style.noticiaConteudoPreview} numberOfLines={2}>
                   {item.conteudo}
                 </Text>
               </View>
@@ -677,6 +736,26 @@ const style = StyleSheet.create({
   },
   removeImageText: {
     fontSize: 12,
+    color: "#dd5145",
+    fontWeight: "600",
+  },
+  resultadosBusca: {
+    fontSize: 12,
+    color: "#aaa",
+    fontWeight: "600",
+  },
+  noticiaCabecalho: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  curtidaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+  },
+  curtidaTexto: {
+    fontSize: 11,
     color: "#dd5145",
     fontWeight: "600",
   },

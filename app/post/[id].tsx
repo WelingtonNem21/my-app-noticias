@@ -18,52 +18,116 @@ import {
 } from "../../src/repositories/PostRepository";
 import { Post } from "../../src/types/post";
 
-export default function PostDetalhe() {
-  const { id, userId } = useLocalSearchParams<{ id: string; userId: string }>();
-  const [post, setPost] = useState<Post | null>(null);
+const API_URL = "https://6a27486ba84f9d39e9086882.mockapi.io/teste/blogs";
 
-  async function carregar() {
+type BlogPost = {
+  id: string;
+  titulo: string;
+  conteudo: string;
+  imagem: string;
+  curtidas: number;
+  usuario_id: number;
+};
+
+export default function PostDetalhe() {
+  const { id, userId, source } = useLocalSearchParams<{
+    id: string;
+    userId: string;
+    source?: string;
+  }>();
+
+  const isApi = source === "api";
+
+  const [post, setPost] = useState<Post | null>(null);
+  const [blogPost, setBlogPost] = useState<BlogPost | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [curtidas, setCurtidas] = useState(0);
+
+  useEffect(() => {
+    if (isApi) {
+      carregarApi();
+    } else {
+      carregarLocal();
+    }
+  }, [id]);
+
+  async function carregarApi() {
     try {
-      const p = await getPostById(Number(id));
-      setPost(p);
+      setLoading(true);
+      const res = await fetch(API_URL);
+      if (!res.ok) throw new Error();
+      const lista: BlogPost[] = await res.json();
+      const data = lista.find((p) => String(p.id) === String(id));
+      if (!data) throw new Error();
+      setBlogPost(data);
+      setCurtidas(data.curtidas);
     } catch {
       Alert.alert("Erro", "Não foi possível carregar o post.");
+    } finally {
+      setLoading(false);
     }
   }
 
-  useEffect(() => {
-    carregar();
-  }, [id]);
+  async function carregarLocal() {
+    try {
+      setLoading(true);
+      const p = await getPostById(Number(id));
+      setPost(p);
+      setCurtidas(p?.curtidas ?? 0);
+    } catch {
+      Alert.alert("Erro", "Não foi possível carregar o post.");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function handleCurtir() {
+    if (isApi) {
+      setCurtidas((prev) => prev + 1);
+      return;
+    }
     if (!post) return;
     try {
       await curtirPost(post.id);
-      setPost((prev) => prev ? { ...prev, curtidas: prev.curtidas + 1 } : prev);
+      setPost((prev) => (prev ? { ...prev, curtidas: prev.curtidas + 1 } : prev));
+      setCurtidas((prev) => prev + 1);
     } catch {
       Alert.alert("Erro", "Não foi possível curtir.");
     }
   }
 
   async function handleFavoritar() {
-    if (!post) return;
+    if (isApi || !post) return;
     try {
       if (post.favorito) {
         await desfavoritarPost(post.id);
-        setPost((prev) => prev ? { ...prev, favorito: 0 } : prev);
+        setPost((prev) => (prev ? { ...prev, favorito: 0 } : prev));
       } else {
         await favoritarPost(post.id);
-        setPost((prev) => prev ? { ...prev, favorito: 1 } : prev);
+        setPost((prev) => (prev ? { ...prev, favorito: 1 } : prev));
       }
     } catch {
       Alert.alert("Erro", "Não foi possível favoritar.");
     }
   }
 
-  if (!post) {
+  if (loading) {
     return (
       <View style={style.loading}>
         <Text style={style.loadingText}>Carregando...</Text>
+      </View>
+    );
+  }
+
+  const titulo = isApi ? blogPost?.titulo : post?.titulo;
+  const conteudo = isApi ? blogPost?.conteudo : post?.conteudo;
+  const imagem = isApi ? null : post?.imagem;
+  const favorito = !isApi && !!post?.favorito;
+
+  if (!titulo) {
+    return (
+      <View style={style.loading}>
+        <Text style={style.loadingText}>Post não encontrado.</Text>
       </View>
     );
   }
@@ -74,18 +138,20 @@ export default function PostDetalhe() {
         <TouchableOpacity onPress={() => router.back()} style={style.backBtn}>
           <Ionicons name="arrow-back" size={22} color="#1a1a1a" />
         </TouchableOpacity>
-        <TouchableOpacity onPress={handleFavoritar} style={style.favoriteBtn}>
-          <Ionicons
-            name={post.favorito ? "heart" : "heart-outline"}
-            size={24}
-            color={post.favorito ? "#dd5145" : "#aaa"}
-          />
-        </TouchableOpacity>
+        {!isApi && (
+          <TouchableOpacity onPress={handleFavoritar} style={style.favoriteBtn}>
+            <Ionicons
+              name={favorito ? "heart" : "heart-outline"}
+              size={24}
+              color={favorito ? "#dd5145" : "#aaa"}
+            />
+          </TouchableOpacity>
+        )}
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
-        {post.imagem ? (
-          <Image source={{ uri: post.imagem }} style={style.imagem} />
+        {imagem ? (
+          <Image source={{ uri: imagem }} style={style.imagem} />
         ) : (
           <View style={style.imagemVazia}>
             <Ionicons name="document-text-outline" size={48} color="#ddd" />
@@ -93,31 +159,33 @@ export default function PostDetalhe() {
         )}
 
         <View style={style.content}>
-          <Text style={style.categoria}>PUBLICAÇÃO</Text>
-          <Text style={style.titulo}>{post.titulo}</Text>
-          <Text style={style.conteudo}>{post.conteudo}</Text>
+          <Text style={style.categoria}>{isApi ? "BLOG" : "PUBLICAÇÃO"}</Text>
+          <Text style={style.titulo}>{titulo}</Text>
+          <Text style={style.conteudo}>{conteudo}</Text>
 
           <View style={style.rodape}>
             <TouchableOpacity style={style.curtirBtn} onPress={handleCurtir} activeOpacity={0.8}>
               <Ionicons name="heart" size={18} color="#dd5145" />
-              <Text style={style.curtidas}>{post.curtidas}</Text>
+              <Text style={style.curtidasTexto}>{curtidas}</Text>
               <Text style={style.curtirTexto}>Curtir</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[style.salvoBtn, post.favorito ? style.salvoBtnAtivo : null]}
-              onPress={handleFavoritar}
-              activeOpacity={0.8}
-            >
-              <Ionicons
-                name={post.favorito ? "bookmark" : "bookmark-outline"}
-                size={16}
-                color={post.favorito ? "#fff" : "#dd5145"}
-              />
-              <Text style={[style.salvoTexto, post.favorito ? style.salvoTextoAtivo : null]}>
-                {post.favorito ? "Salvo" : "Salvar"}
-              </Text>
-            </TouchableOpacity>
+            {!isApi && (
+              <TouchableOpacity
+                style={[style.salvoBtn, favorito ? style.salvoBtnAtivo : null]}
+                onPress={handleFavoritar}
+                activeOpacity={0.8}
+              >
+                <Ionicons
+                  name={favorito ? "bookmark" : "bookmark-outline"}
+                  size={16}
+                  color={favorito ? "#fff" : "#dd5145"}
+                />
+                <Text style={[style.salvoTexto, favorito ? style.salvoTextoAtivo : null]}>
+                  {favorito ? "Salvo" : "Salvar"}
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </ScrollView>
@@ -226,7 +294,7 @@ const style = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 20,
   },
-  curtidas: {
+  curtidasTexto: {
     fontSize: 15,
     fontWeight: "700",
     color: "#dd5145",
